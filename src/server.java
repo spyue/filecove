@@ -79,7 +79,7 @@ public class Server {
       return;
     }
 
-    // "/fiels/notes/a.txt?hash=ab12" -> kind: "files", path: "notes/a.txt"
+    // "/files/notes/a.txt?hash=ab12" -> kind: "files", path: "notes/a.txt"
     String full = ex.getRequestedURI().getPath();
     String rest = full.startsWith("/") ? full.substring(1) : full;
     int slash = rest.indexOf('/');
