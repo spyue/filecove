@@ -1,9 +1,34 @@
-// filecove.server: stores files and histories, communicates over HTTP
+// filecove.Server: stores files and histories, communicates over HTTP
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 
 public class Server {
-  static final String TOKEN = env("FILESYNC_TOKEN", "");
+  static final String TOKEN = env("FILECOVE_TOKEN", "");
   static final Path DATA_DIR = Path.of(expandHome(env("FILECOVE_DATA", "~/filecove-data")));
-  static final String HOST = env("FILECOVE_HOST", "0.0.0.0"));
+  static final String HOST = env("FILECOVE_HOST", "0.0.0.0");
   static final int PORT = Integer.parseInt(env("FILECOVE_PORT", "8800"));
 
   static final Path OBJECTS = DATA_DIR.resolve("objects");
@@ -11,13 +36,13 @@ public class Server {
   static final Path LOG = DATA_DIR.resolve("log.tsv");
 
   static final Pattern HASH = Pattern.compile("[0-9a-f]{64}");
-  static final Pattern DEVICE = Pattern.compile("[A-Za-z0-9._-]"{64});
+  static final Pattern DEVICE = Pattern.compile("[A-Za-z0-9._-]{1,64}");
 
   static final Object LOCK = new Object();
 
   static String env(String name, String fallback) {
     String value = System.getenv(name);
-    return (value == null || value.isEmpty() ? falback : value);
+    return (value == null || value.isEmpty() ? fallback : value);
   }
 
   //help with ~ for java
@@ -39,20 +64,20 @@ public class Server {
         } catch (IOException ignored) {
       }
     } finally {
-        System.out.println(ex.getRequestedMethod() + " " + ex.getRequestedURI() + " -> " + ex.getResponseCode());
+        System.out.println(ex.getRequestMethod() + " " + ex.getRequestURI() + " -> " + ex.getResponseCode());
         ex.close();
     }
   }
 
   static boolean authorized(HttpExchange ex) {
-    String sent = ex.getRequestedHeaders().getFirst("Authorization");
+    String sent = ex.getRequestHeaders().getFirst("Authorization");
     if (sent == null) {
       sent = "";
     }
     // MessageDigest.isEqual takes the same time no matter where
     // the difference is thus nobody can guess the token by timing
     // how fast the server says no
-    return MessageDigest.isEqual(sent.getBytes(standardCharsets.UTF_8), ("Bearer " + TOKEN).getBytes(StandardCharsets.UTF_8))
+    return MessageDigest.isEqual(sent.getBytes(StandardCharsets.UTF_8), ("Bearer " + TOKEN).getBytes(StandardCharsets.UTF_8));
   }
 
   static void sendText(HttpExchange ex, int code, String text) throws IOException {
@@ -80,7 +105,7 @@ public class Server {
     }
 
     // "/files/notes/a.txt?hash=ab12" -> kind: "files", path: "notes/a.txt"
-    String full = ex.getRequestedURI().getPath();
+    String full = ex.getRequestURI().getPath();
     String rest = full.startsWith("/") ? full.substring(1) : full;
     int slash = rest.indexOf('/');
     String kind = slash < 0 ? rest : rest.substring(0, slash);

@@ -1,15 +1,41 @@
-#filecove.client
+//filecove.Client
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.net.ConnectException;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileTime;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
 
 public class Client {
   static final Path HOME = Path.of(System.getProperty("user.home"));
   static final Path CONFIG = HOME.resolve(".config/filecove/config.properties");
-  static final Path INBOX_DIR = HOME.resolve("Inbox")
+  static final Path INBOX_DIR = HOME.resolve("Inbox");
 
   //Force HTTP 1.1
-  static final HttpClient HTTP = HttpClient.newbuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(10)).build();
+  static final HttpClient HTTP = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(10)).build();
 
   static String server;
-  static String TOKEN;
+  static String token;
   static String device;
 
   static void die(String message) {
@@ -19,7 +45,7 @@ public class Client {
 
   static void need(List<String> args, int min, int max, String usage) {
     if (args.size() < min || args.size() > max) {
-      die("usage: fs " + usage)
+      die("usage: fs " + usage);
     }
   }
 
@@ -27,7 +53,7 @@ public class Client {
     try {
         return InetAddress.getLocalHost().getHostName();
     } catch (IOException e) {
-        return "unknown"
+        return "unknown";
     }
   }
 
@@ -51,28 +77,28 @@ public class Client {
 
   //begin building the request
   static HttpRequest.Builder newRequest(String urlPath) {
-    return HttpRequest,newBuilder(URI.create(server + urlPath)).header("Authorization", "Bearer" + token).header("X-Device", device);
+    return HttpRequest.newBuilder(URI.create(server + urlPath)).header("Authorization", "Bearer" + token).header("X-Device", device);
   }
 
   static HttpResponse<InputStream> send(HttpRequest request) {
     try {
         HttpResponse<InputStream> resp = HTTP.send(request, HttpResponse.BodyHandlers.ofInputStream());
         if (resp.statusCode() >= 400) {
-          String message = new String(resp.body().readAllbytes(), StandardCharsets.UTF_8);
+          String message = new String(resp.body().readAllBytes(), StandardCharsets.UTF_8);
           die("server error " + resp.statusCode() + ": " + message.strip());
         }
         return resp;
     } catch (ConnectException e) {
-        die("Can't reach " + resp.statusCode() + ": Connection refused");
+        die("can't reach " + server + ": Connection refused");
     } catch (IOException | InterruptedException e) {
-        die("Can't reach " + server + ": " + e);
+        die("can't reach " + server + ": " + e);
     }
     return null;
   }
 
   static String call(HttpRequest request) {
     try (InputStream in = send(request).body()) {
-        return new String(in.readAllbytes(), StandardCharsets.UTF_8);
+        return new String(in.readAllBytes(), StandardCharsets.UTF_8);
     } catch (IOException e) {
         die("lost the connection: " + e.getMessage());
         return null;
@@ -109,19 +135,19 @@ public class Client {
               die("--version needs a hash after it");
           }
           i++;
-          version = argv[1];
+          version = argv[i];
         }
         case "-h", "--help" -> {
           usage();
           return;
         }
-        default -> args.add(argv[1]);
+        default -> args.add(argv[i]);
       }
     }
 
     if (args.isEmpty()) {
         usage();
-        system.exit(1);
+        System.exit(1);
     }
     String command = args.remove(0);
     loadConfig();
