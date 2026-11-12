@@ -77,7 +77,7 @@ public class Client {
 
   //begin building the request
   static HttpRequest.Builder newRequest(String urlPath) {
-    return HttpRequest.newBuilder(URI.create(server + urlPath)).header("Authorization", "Bearer" + token).header("X-Device", device);
+    return HttpRequest.newBuilder(URI.create(server + urlPath)).header("Authorization", "Bearer " + token).header("X-Device", device);
   }
 
   static HttpResponse<InputStream> send(HttpRequest request) {
@@ -153,7 +153,64 @@ public class Client {
     loadConfig();
     //add new commands here
     switch(command) {
+      case "ls" -> cmdLs(args);
       default -> die("unknown command: " + command + " (try --help)");
+    }
+  }
+
+  static final DateTimeFormatter WHEN = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
+
+  record Entry(String hash, long size, long mtime,String device, String path) {
+    static Entry parse(String line) {
+      String[] f = line.split("\t", -1);
+      return new Entry(f[0], Long.parseLong(f[1]), Long.parseLong(f[2]), f[3], f[4]);
+    }
+  }
+
+  static String human(long n) {
+    if (n < 1024) {
+      return n + "B";
+    }
+    String[] units = {"KB", "MB", "GB", "TB"};
+    double x = n;
+    int i = -1;
+    while (x>=1024 && i < units.length - 1) {
+      x /= 1024;
+      i++;
+    }
+    return String.format("%.1f%s", x, units[i]);
+  }
+
+  static String when(long millis) {
+    return WHEN.format(Instant.ofEpochMilli(millis));
+  }
+
+  static List<String> lines(String text) {
+    return text.lines().filter(line -> !line.isBlank()).toList();
+  }
+
+  static List<Entry> fileList() {
+    List<Entry> entries = new ArrayList<>();
+    for (String line : lines(getText("/files/"))) {
+      entries.add(Entry.parse(line));
+    }
+    return entries;
+  }
+  
+  static void cmdLs(List<String> args) {
+    need(args, 0, 1, "ls [PREFIX]");
+    String prefix = args.isEmpty() ? "" : args.get(0);
+    List<Entry> rows = new ArrayList<>();
+    for (Entry e : fileList()) {
+      if (e.path().startsWith(prefix)) {
+        rows.add(e);
+      }
+    }
+    if (rows.isEmpty()) {
+      System.out.println("no files"); 
+    }
+    for (Entry e : rows) {
+      System.out.printf("%8s %s %-14s %s%n", human(e.size()), when(e.mtime()), e.device(), e.path());
     }
   }
 }
