@@ -131,4 +131,38 @@ public class Server {
     server.start();
     System.out.println("filecove server on " + HOST + ";" + PORT + ", data in " + DATA_DIR);
   }
+
+  record Entry(String hash, long size, long mtime, String device) {}
+
+  static Map<String, Entry> loadIndex() throws IOException {
+    Map<String, Entry> index = new TreeMap<>();
+    if (!Files.exists(INDEX)) {
+      return index;
+    }
+    for (String line : Files.readAllLines(INDEX, StandardCharsets.UTF_8)) {
+      if (line.isBlank()) {
+        continue;
+      }
+
+      String[] f = line.split("\t", -1);
+      index.put(f[4], new Entry(f[0], Long.parseLong(f[1]), Long.parseLong(f[2]), f[3]));
+    }
+    return index;
+  }
+
+  static String indexLine(String path, Entry e) {
+    return e.hash() + "\t" + e.size() + "\t" + e.mtime() + "\t" + e.device() + "\t" + path;
+  }
+
+  static void listFiles(HttpExchange ex) throws IOException {
+    Map<String, Entry> index;
+    synchronized (LOCK) {
+      index = loadIndex();
+    }
+    StringBuilder out = new StringBuilder();
+    for (Map.Entry<String, Entry> item : index.entrySet()) {
+      out.append(indexLine(item.getKey(), item.getValue())).append('\n');
+    }
+    sendText(ex, 200, out.toString());
+  }
 }
