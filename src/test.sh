@@ -107,3 +107,6 @@ check "no token is rejected (401)" "401" "$(raw GET /files/ '')"
 check "unknown endpoint gives 404" "404" "$(raw GET /nothing)"
 check "client shows help" "usage: fs" "$(tower --help)"
 check "client rejects unknown commands" "unknown command" "$(tower frobnicate)"
+
+echo "== ls =="
+check "ls on an empty server" "no files" "$(tower ls)"
