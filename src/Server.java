@@ -132,6 +132,7 @@ public class Server {
     System.out.println("filecove server on " + HOST + ";" + PORT + ", data in " + DATA_DIR);
   }
 
+  //record handling
   record Entry(String hash, long size, long mtime, String device) {}
 
   static Map<String, Entry> loadIndex() throws IOException {
