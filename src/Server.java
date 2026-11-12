@@ -112,6 +112,7 @@ public class Server {
     String path = slash < 0 ? "" : rest.substring(slash + 1);
     String method = ex.getRequestMethod();
 
+    if (kind.equals("files") && method.equals("GET") && path.isEmpty()) {listFiles(ex); return;}
     sendError(ex, 404, "unknown endpoint: " + method + " /" + kind);
      }
 
