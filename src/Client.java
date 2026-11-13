@@ -154,6 +154,7 @@ public class Client {
     //add new commands here
     switch(command) {
       case "ls" -> cmdLs(args);
+      case "push" -> cmdPush(args);
       default -> die("unknown command: " + command + " (try --help)");
     }
   }
@@ -167,6 +168,7 @@ public class Client {
     }
   }
 
+  //ls handling
   static String human(long n) {
     if (n < 1024) {
       return n + "B";
@@ -212,5 +214,47 @@ public class Client {
     for (Entry e : rows) {
       System.out.printf("%8s %s %-14s %s%n", human(e.size()), when(e.mtime()), e.device(), e.path());
     }
+  }
+
+  //push handling
+  static String encode(String s) {
+    StringBuilder out = new StringBuilder();
+    for (byte b : s.getBytes(StandardCharsets.UTF_8)) {
+      //-128-127 -> 0-255
+      int v = b & 0xff;
+      char c = (char) v;
+      if ((c >= 'a' && c <= 'z') ||(c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || "-._~/".indexOf(c) >= 0) {
+        out.append(c);
+      } else { 
+        out.append('%').append(String.format("%02x", v));
+      }
+    }
+    return out.toString();
+  }
+
+  static void upload(Path local, String remote) {
+    try {
+      long size = Files.size(local);
+      long mtime = Files.getLastModifiedTime(local).toMillis();
+      HttpRequest request = newRequest("/files/" + encode(remote)).header("X-MTime", Long.toString(mtime)).PUT(HttpRequest.BodyPublishers.ofFile(local)).build();
+      String hash = call(request).split("\t")[0];
+      System.out.println("pushed " + local + " -> " + remote + "  (" + human(size) + ", version " + hash.substring(0, 8) + ")");
+    } catch (IOException e) {
+      die("can't read " + local + ": " + e.getMessage());
+    }
+  }
+
+  static void cmdPush(List<String> args) {
+    need(args, 1, 2, "push FILE [REMOTE]");
+    Path file = Path.of(args.get(0));
+    if (!Files.isRegularFile(file)) {
+      die(file + " is not a file");
+    }
+    String name = file.getFileName().toString();
+    String remote = args.size() > 1 ? args.get(1) : name;
+    if (remote.endsWith("/")) {
+      remote += name;
+    }
+    upload(file, remote);
   }
 }
