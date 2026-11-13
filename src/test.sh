@@ -124,3 +124,40 @@ check "pushing a missing local file explains why" "is not a file" "$(tower push 
 check "upload path with .. is refused (400)" "400" "$(raw PUT /files/../evil)"
 check "upload path with ../ inside is refused" "400" "$(raw PUT /files/a/../../evil)"
 check "absolute upload path is refused" "400" "$(raw PUT /files//etc/evil)"
+
+#pull test
+echo "== pull =="
+laptop pull notes.txt >/dev/null
+same "laptop pulls identical contents" "$TMP/tower/work/notes.txt" "$TMP/laptop/work/notes.txt"
+check "pull keeps the original modified time" \
+  "$(stat -c %Y "$TMP/tower/work/notes.txt")" "$(stat -c %Y "$TMP/laptop/work/notes.txt")"
+
+echo "spaces" >"$TMP/tower/work/my notes.txt"
+tower push "my notes.txt" >/dev/null
+laptop pull "my notes.txt" >/dev/null
+same "file name with spaces survives the trip" "$TMP/tower/work/my notes.txt" "$TMP/laptop/work/my notes.txt"
+check "ls shows 'my notes.txt', not 'my%20notes.txt'" "my notes.txt" "$(tower ls)"
+
+echo "accents" >"$TMP/tower/work/résumé.txt"
+tower push "résumé.txt" >/dev/null
+laptop pull "résumé.txt" >/dev/null
+same "non-English file name survives the trip" "$TMP/tower/work/résumé.txt" "$TMP/laptop/work/résumé.txt"
+
+# 3 MB of random bytes: random data proves binary files (images, PDFs)
+# aren't mangled, and the size makes the copy loops go around many times.
+head -c 3000000 /dev/urandom >"$TMP/tower/work/big.bin"
+tower push big.bin >/dev/null
+laptop pull big.bin >/dev/null
+same "3 MB binary file arrives byte-for-byte" "$TMP/tower/work/big.bin" "$TMP/laptop/work/big.bin"
+
+: >"$TMP/tower/work/empty.txt"
+tower push empty.txt >/dev/null
+laptop pull empty.txt >/dev/null
+same "empty file survives the trip" "$TMP/tower/work/empty.txt" "$TMP/laptop/work/empty.txt"
+
+mkdir -p "$TMP/laptop/work/sub"
+laptop pull notes.txt sub >/dev/null
+check "pull into an existing folder" "version one" "$(cat "$TMP/laptop/work/sub/notes.txt" 2>&1)"
+
+check "pulling a missing file explains why" "404" "$(laptop pull nope.txt)"
+check "sneaky hash is refused (400)" "400" "$(raw GET '/files/x?hash=../../../etc/passwd')"

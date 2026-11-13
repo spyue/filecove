@@ -155,6 +155,7 @@ public class Client {
     switch(command) {
       case "ls" -> cmdLs(args);
       case "push" -> cmdPush(args);
+      case "pull" -> cmdPull(args, version);
       default -> die("unknown command: " + command + " (try --help)");
     }
   }
@@ -168,7 +169,7 @@ public class Client {
     }
   }
 
-  //ls handling
+//ls handling
   static String human(long n) {
     if (n < 1024) {
       return n + "B";
@@ -216,7 +217,7 @@ public class Client {
     }
   }
 
-  //push handling
+//push handling
   static String encode(String s) {
     StringBuilder out = new StringBuilder();
     for (byte b : s.getBytes(StandardCharsets.UTF_8)) {
@@ -256,5 +257,36 @@ public class Client {
       remote += name;
     }
     upload(file, remote);
+  }
+
+//pull handling
+  static void download(String remote, Path local, String version) {
+    String url = "/files/" + encode(remote) + (version == null ? "" : "?hash=" + version);
+    Path tmp = local.resolveSibling(local.getFileName() + ".part");
+    HttpResponse<InputStream> resp = send(newRequest(url).GET().build());
+    try (InputStream in = resp.body()) {
+      Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
+      Files.move(tmp, local, StandardCopyOption.REPLACE_EXISTING);
+      Optional<String> mtime = resp.headers().firstValue("X-MTime");
+      if (mtime.isPresent()) {
+        Files.setLastModifiedTime(local, FileTime.fromMillis(Long.parseLong(mtime.get())));
+      }
+    } catch (IOException e) {
+        die("couldn't save " + local + ": " + e.getMessage());
+    }
+    System.out.println("pulled " + remote + " -> " + local);
+  }
+
+  static void cmdPull(List<String> args, String version) {
+    need(args, 1, 2, "pull REMOTE [LOCAL] [--version HASH]");
+    String remote = args.get(0);
+    String name = Path.of(remote).getFileName().toString();
+    Path local = Path.of(args.size() > 1 ? args.get(1) : name);
+    if (Files.isDirectory(local)) {
+      local = local.resolve(name);
+    }
+    String fullHash = null;
+
+    download(remote, local, fullHash);
   }
 }

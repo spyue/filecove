@@ -111,9 +111,11 @@ public class Server {
     String kind = slash < 0 ? rest : rest.substring(0, slash);
     String path = slash < 0 ? "" : rest.substring(slash + 1);
     String method = ex.getRequestMethod();
+    Map<String, String> query = parseQuery(ex.getRequestURI().getRawQuery());
 
     if (kind.equals("files") && method.equals("GET") && path.isEmpty()) {listFiles(ex); return;}
     if (kind.equals("files") && method.equals("PUT")) { receiveFile(ex, path); return; }
+    if (kind.equals("files") && method.equals("GET")) {sendFile(ex, path, query.get("hash")); return;}
     sendError(ex, 404, "unknown endpoint: " + method + " /" + kind);
      }
 
@@ -281,13 +283,18 @@ public class Server {
     }
     if (wantedHash == null) {
       if (current == null) {
-        sendError(ex, 400, "no file named " + path);
+        sendError(ex, 404, "no file named " + path);
         return;
       }
       wantedHash = current.hash();
     }
 
     if (!HASH.matcher(wantedHash).matches()) {
+      sendError(ex, 400, "no such version");
+      return;
+    }
+    Path obj = OBJECTS.resolve(wantedHash);
+    if (!Files.exists(obj)) {
       sendError(ex, 404, "no such version");
       return;
     }
