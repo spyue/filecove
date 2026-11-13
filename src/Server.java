@@ -117,6 +117,7 @@ public class Server {
     if (kind.equals("files") && method.equals("PUT")) { receiveFile(ex, path); return; }
     if (kind.equals("files") && method.equals("GET")) {sendFile(ex, path, query.get("hash")); return;}
     if (kind.equals("log") && method.equals("GET")) {sendLog(ex, query.get("path")); return;}
+    if (kind.equals("files") && method.equals("DELETE")) { deleteFile(ex, path); return; }
     sendError(ex, 404, "unknown endpoint: " + method + " /" + kind);
      }
 
@@ -340,7 +341,7 @@ public class Server {
   }
 
 //delete file
-  static void deleteFile(HttpExchange ex, String path) {
+  static void deleteFile(HttpExchange ex, String path) throws IOException {
     Entry old;
     synchronized (LOCK) {
       Map<String, Entry> index = loadIndex();

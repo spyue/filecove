@@ -157,6 +157,7 @@ public class Client {
       case "push" -> cmdPush(args);
       case "pull" -> cmdPull(args, version);
       case "log" -> cmdLog(args);
+      case "rm" -> cmdRm(args);
       default -> die("unknown command: " + command + " (try --help)");
     }
   }
@@ -318,5 +319,12 @@ public class Client {
       String[] f = line.split("\t", -1);
       System.out.printf("%s %-6s %s %-14s %s%n", when(Long.parseLong(f[0])), f[1], f[2].substring(0, 8), f[4], f[5]);
     }
+  }
+
+//removal (rm) handling
+  static void cmdRm(List<String> args) {
+    need(args, 1, 1, "rm REMOTE");
+    call(newRequest("/files/" + encode(args.get(0))).DELETE().build());
+    System.out.println("removed " + args.get(0) + " (old versions still in history)");
   }
 }
