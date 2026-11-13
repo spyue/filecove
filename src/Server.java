@@ -116,6 +116,7 @@ public class Server {
     if (kind.equals("files") && method.equals("GET") && path.isEmpty()) {listFiles(ex); return;}
     if (kind.equals("files") && method.equals("PUT")) { receiveFile(ex, path); return; }
     if (kind.equals("files") && method.equals("GET")) {sendFile(ex, path, query.get("hash")); return;}
+    if (kind.equals("log") && method.equals("GET")) {sendLog(ex, query.get("path")); return;}
     sendError(ex, 404, "unknown endpoint: " + method + " /" + kind);
      }
 
@@ -331,7 +332,7 @@ public class Server {
   }
 
   static void sendLog(HttpExchange ex, String onlyPath) throws IOException {
-    List<Strin> lines;
+    List<String> lines;
     synchronized (LOCK) {
       lines = readLog(onlyPath);
     }

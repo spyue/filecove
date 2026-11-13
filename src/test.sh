@@ -161,3 +161,19 @@ check "pull into an existing folder" "version one" "$(cat "$TMP/laptop/work/sub/
 
 check "pulling a missing file explains why" "404" "$(laptop pull nope.txt)"
 check "sneaky hash is refused (400)" "400" "$(raw GET '/files/x?hash=../../../etc/passwd')"
+
+#log and old versions
+echo "== history =="
+echo "version two" >"$TMP/tower/work/notes.txt"
+tower push notes.txt >/dev/null
+laptop pull notes.txt >/dev/null
+check "pull gets the newest version" "version two" "$(cat "$TMP/laptop/work/notes.txt")"
+
+history=$(tower log notes.txt)
+lines=$(echo "$history" | grep -c " notes.txt$")
+check "log shows both versions of notes.txt" "2" "$lines"
+
+old_hash=$(echo "$history" | head -1 | awk '{print $4}') # 4th column = short hash
+laptop pull notes.txt old.txt --version "$old_hash" >/dev/null
+check "pull an old version by its short hash" "version one" "$(cat "$TMP/laptop/work/old.txt" 2>&1)"
+check "made-up hash is rejected" "0 versions" "$(laptop pull notes.txt x.txt --version ffffffff)"
