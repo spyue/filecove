@@ -108,5 +108,19 @@ check "unknown endpoint gives 404" "404" "$(raw GET /nothing)"
 check "client shows help" "usage: fs" "$(tower --help)"
 check "client rejects unknown commands" "unknown command" "$(tower frobnicate)"
 
+#ls and file search tests
 echo "== ls =="
 check "ls on an empty server" "no files" "$(tower ls)"
+
+#push and file handling tests:
+echo "== push =="
+echo "version one" >"$TMP/tower/work/notes.txt"
+touch -d "2020-01-01 12:00" "$TMP/tower/work/notes.txt"
+check "push a file" "pushed" "$(tower push notes.txt)"
+check "ls shows it with the device name" "tower" "$(tower ls)"
+check "push into a folder (remote ending in /)" "school/notes.txt" "$(tower push notes.txt school/)"
+check "ls with a prefix filter" "school/notes.txt" "$(tower ls school/)"
+check "pushing a missing local file explains why" "is not a file" "$(tower push nope.txt)"
+check "upload path with .. is refused (400)" "400" "$(raw PUT /files/../evil)"
+check "upload path with ../ inside is refused" "400" "$(raw PUT /files/a/../../evil)"
+check "absolute upload path is refused" "400" "$(raw PUT /files//etc/evil)"
