@@ -338,4 +338,22 @@ public class Server {
     }
     sendText(ex, 200, lines.isEmpty() ? "" : String.join("\n", lines) + "\n");
   }
+
+//delete file
+  static void deleteFile(HttpExchange ex, String path) {
+    Entry old;
+    synchronized (LOCK) {
+      Map<String, Entry> index = loadIndex();
+      old = index.remove(path);
+      if (old != null) {
+        saveIndex(index);
+        appendLog("delete", old.hash(), old.size(), deviceOf(ex), path);
+      }
+    }
+    if (old == null) {
+      sendError(ex, 404, "no file named " + path);
+    } else {
+      sendText(ex, 200, "deleted " + path + "\n");
+    }
+  }
 }
