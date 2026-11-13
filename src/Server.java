@@ -311,4 +311,30 @@ public class Server {
       }
     }
   }
+
+//history
+  static List<String> readLog(String onlyPath) throws IOException {
+    List<String> lines = new ArrayList<>();
+    if (!Files.exists(LOG)) {
+      return lines;
+    }
+    for (String line : Files.readAllLines(LOG, StandardCharsets.UTF_8)) {
+      if (line.isBlank()) {
+        continue;
+      }
+      String path = line.split("\t", -1)[5];
+      if (onlyPath == null || path.equals(onlyPath)) {
+        lines.add(line);
+      }
+    }
+    return lines;
+  }
+
+  static void sendLog(HttpExchange ex, String onlyPath) throws IOException {
+    List<Strin> lines;
+    synchronized (LOCK) {
+      lines = readLog(onlyPath);
+    }
+    sendText(ex, 200, lines.isEmpty() ? "" : String.join("\n", lines) + "\n");
+  }
 }
