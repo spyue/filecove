@@ -156,6 +156,7 @@ public class Client {
       case "ls" -> cmdLs(args);
       case "push" -> cmdPush(args);
       case "pull" -> cmdPull(args, version);
+      case "log" -> cmdLog(args);
       default -> die("unknown command: " + command + " (try --help)");
     }
   }
@@ -286,7 +287,36 @@ public class Client {
       local = local.resolve(name);
     }
     String fullHash = null;
-
+    if (version != null) {
+      fullHash = resolveVersion(remote, version);
+    }
     download(remote, local, fullHash);
+  }
+
+//log / pulling old versions
+  static String resolveVersion(String remote, String shortHash) {
+    Set<String> matches = new HashSet<>();
+    for (String line : lines(getText("/log?path=" + encode(remote)))) {
+      String hash = line.split("\t")[2];
+      if (hash.startsWith(shortHash)) {
+        matches.add(hash);
+      }
+    }
+    if (matches.size() != 1) {
+      die(matches.size() + " versions of " + remote + " match '" + shortHash + "'; check 'log " + remote + "'");
+    }
+
+    return matches.iterator().next();
+  }
+
+  static void cmdLog(List<String> args) {
+    need(args, 0, 1, "log [REMOTE]");
+    String url = args.isEmpty() ? "/log" : "/log?path=" + encode(args.get(0));
+    List<String> history = lines(getText(url));
+    int start = Math.max(0, history.size() - 30);
+    for (String line : history.subList(start, history.size())) {
+      String[] f = line.split("\t", -1);
+      System.out.printf("%s %-6s %s %-14s %s%n", when(Long.parseLong(f[0])), f[1], f[2].substring(0, 8), f[4], f[5]);
+    }
   }
 }
