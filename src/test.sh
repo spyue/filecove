@@ -189,6 +189,16 @@ fi
 check "rm shows up in the history" "delete" "$(tower log school/notes.txt)"
 check "rm of a missing file explains why" "404" "$(tower rm nope.txt)"
 
+#send and inbox
+echo "== send and inbox =="
+echo "for the laptop" >"$TMP/tower/work/gift.txt"
+check "send to another device" "inbox/laptop/gift.txt" "$(tower send gift.txt laptop)"
+check "tower's own inbox is empty" "inbox is empty" "$(tower inbox)"
+check "laptop sees it, and who sent it" "from tower" "$(laptop inbox)"
+laptop inbox --get >/dev/null
+same "inbox --get downloads to ~/Inbox" "$TMP/tower/work/gift.txt" "$TMP/laptop/Inbox/gift.txt"
+check "inbox is empty after --get" "inbox is empty" "$(laptop inbox)"
+
 #keep bottom
 echo "== server down =="
 kill "$SERVER_PID" 2>/dev/null

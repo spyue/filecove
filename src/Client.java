@@ -158,6 +158,8 @@ public class Client {
       case "pull" -> cmdPull(args, version);
       case "log" -> cmdLog(args);
       case "rm" -> cmdRm(args);
+      case "send" -> cmdSend(args);
+      case "inbox" -> cmdInbox(args, get);
       default -> die("unknown command: " + command + " (try --help)");
     }
   }
@@ -326,5 +328,53 @@ public class Client {
     need(args, 1, 1, "rm REMOTE");
     call(newRequest("/files/" + encode(args.get(0))).DELETE().build());
     System.out.println("removed " + args.get(0) + " (old versions still in history)");
+  }
+
+//send to device
+  static void cmdSend(List<String> args) {
+    need(args, 2, Integer.MAX_VALUE, "send FILE... DEVICE");
+    String target = args.get(args.size() - 1);
+    List<String> files = args.subList(0, args.size() - 1);
+    for (String f : files) {
+      if (!Files.isRegularFile(Path.of(f))) {
+        die(f + " is not a file");
+      }
+    }
+    for (String f : files) {
+      Path p = Path.of(f);
+      upload(p, "inbox/" + target + "/" + p.getFileName());
+    }
+  }
+
+//device inbox
+  static void cmdInbox(List<String> args, boolean get) {
+    need(args, 0, 0, "inbox [--get]");
+    String prefix = "inbox/" + device + "/";
+    List<Entry> waiting = new ArrayList<>();
+    for (Entry e : fileList()) {
+      if (e.path().startsWith(prefix)) {
+        waiting.add(e);
+      }
+    }
+    if (waiting.isEmpty()) {
+      System.out.println("inbox is empty");
+      return;
+    }
+    if (!get) {
+      for (Entry e : waiting) {
+        System.out.printf("%8s from %-14s %s%n", human(e.size()), e.device(), e.path().substring(prefix.length()));
+      }
+      System.out.println("run 'inbox --get' to download these to ~/inbox");
+      return;
+    }
+    try {
+      Files.createDirectories(INBOX_DIR);
+    } catch (IOException e) {
+      die("can't create " + INBOX_DIR + ": " + e.getMessage());
+    }
+    for (Entry e : waiting) {
+      download(e.path(), INBOX_DIR.resolve(Path.of(e.path()).getFileName()), null);
+      call(newRequest("/files/" + encode(e.path())).DELETE().build());
+    }
   }
 }
