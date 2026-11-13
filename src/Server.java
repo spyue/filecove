@@ -47,7 +47,7 @@ public class Server {
 
   //help with ~ for java
   static String expandHome(String path) {
-    if (path.equals("~") || path.equals("~/")) {
+    if (path.equals("~") || path.startsWith("~/")) {
       return System.getProperty("user.home") + path.substring(1);
     }
     return path;
@@ -113,6 +113,7 @@ public class Server {
     String method = ex.getRequestMethod();
 
     if (kind.equals("files") && method.equals("GET") && path.isEmpty()) {listFiles(ex); return;}
+    if (kind.equals("files") && method.equals("PUT")) { receiveFile(ex, path); return; }
     sendError(ex, 404, "unknown endpoint: " + method + " /" + kind);
      }
 
@@ -166,5 +167,95 @@ public class Server {
       out.append(indexLine(item.getKey(), item.getValue())).append('\n');
     }
     sendText(ex, 200, out.toString());
+  }
+
+  //upload handling
+  static void saveIndex(Map<String, Entry> index) throws IOException {
+    StringBuilder out = new StringBuilder();
+    for (Map.Entry<String, Entry> item : index.entrySet()) {
+      out.append(indexLine(item.getKey(), item.getValue())).append('\n');
+    }
+
+    Path tmp = DATA_DIR.resolve("index.tsv.temp");
+    Files.writeString(tmp, out, StandardCharsets.UTF_8);
+    Files.move(tmp, INDEX, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+  }
+
+  static void appendLog(String action, String hash, long size, String device, String path) throws IOException {
+    String line = System.currentTimeMillis() + "\t" + action + "\t" + hash + "\t" + size + "\t" + device + "\t" + path + "\n";
+    Files.writeString(LOG, line, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+  }
+
+  //ensures paths like ../../.config dont slip through when they are converted from the index.tsv for download
+  static boolean isValidPath(String path) {
+    if (path.isEmpty() || path.startsWith("/") || path.contains("\\") || path.contains("\t") || path.contains("\n") || path.contains("\r")) {
+      return false;
+    }
+    for (String part : path.split("/", -1)) {
+      if (part.isEmpty() || part.equals(".") || part.equals("..")) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  //hash handling sha256
+  static MessageDigest newsha256() {
+    try {
+      return MessageDigest.getInstance("SHA-256");
+    } catch (NoSuchAlgorithmException e) {
+        throw new IllegalStateException(e);
+    }
+  }
+
+  //get device that sent the request
+  static String deviceOf(HttpExchange ex) {
+    String d = ex.getRequestHeaders().getFirst("X-Device");
+    return (d != null && DEVICE.matcher(d).matches()) ? d : "unknown";
+  }
+
+  //gettime of request
+  static long mtimeOf(HttpExchange ex) {
+    String m = ex.getRequestHeaders().getFirst("X-MTime");
+    return (m != null && m.matches("[0-9]{1,15}")) ? Long.parseLong(m) : System.currentTimeMillis();
+  }
+
+  //handles the receieving of the file
+  static void receiveFile(HttpExchange ex, String path) throws IOException {
+    if (!isValidPath(path)) {
+      sendError(ex, 400, "bad path: " + path);
+      return;
+    }
+
+    String lengthHeader = ex.getRequestHeaders().getFirst("Content-Length");
+    long expected = lengthHeader == null ? -1 : Long.parseLong(lengthHeader);
+
+    MessageDigest sha256 = newsha256();
+    Path tmp = Files.createTempFile(OBJECTS, ".upload-", "");
+    long size;
+    try (InputStream in = new DigestInputStream(ex.getRequestBody(), sha256)) {
+      size = Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
+    } catch (IOException e) {
+        Files.deleteIfExists(tmp);
+        throw e;
+    }
+    
+    if (expected >= 0 && size != expected) {
+      Files.deleteIfExists(tmp);
+      sendError(ex, 400, "upload was cut off");
+      return;
+    }
+
+    String hash = HexFormat.of().formatHex(sha256.digest());
+    Files.move(tmp, OBJECTS.resolve(hash), StandardCopyOption.REPLACE_EXISTING);
+
+    Entry entry = new Entry(hash, size, mtimeOf(ex), deviceOf(ex));
+    synchronized (LOCK) {
+      Map<String, Entry> index = loadIndex();
+      index.put(path, entry);
+      saveIndex(index);
+      appendLog("put", hash, size, entry.device(), path);
+    }
+    sendText(ex, 200, indexLine(path, entry) + "\n");
   }
 }
