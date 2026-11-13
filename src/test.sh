@@ -177,3 +177,30 @@ old_hash=$(echo "$history" | head -1 | awk '{print $4}') # 4th column = short ha
 laptop pull notes.txt old.txt --version "$old_hash" >/dev/null
 check "pull an old version by its short hash" "version one" "$(cat "$TMP/laptop/work/old.txt" 2>&1)"
 check "made-up hash is rejected" "0 versions" "$(laptop pull notes.txt x.txt --version ffffffff)"
+
+#remove file
+echo "== rm =="
+check "rm removes a file" "removed school/notes.txt" "$(tower rm school/notes.txt)"
+if tower ls | grep -q "school/notes.txt"; then
+  fail "file is gone from ls after rm" "still listed"
+else
+  pass "file is gone from ls after rm"
+fi
+check "rm shows up in the history" "delete" "$(tower log school/notes.txt)"
+check "rm of a missing file explains why" "404" "$(tower rm nope.txt)"
+
+#keep bottom
+echo "== server down =="
+kill "$SERVER_PID" 2>/dev/null
+wait "$SERVER_PID" 2>/dev/null
+SERVER_PID=""
+check "client explains when the server is down" "can't reach" "$(tower ls)" # [slice 2]
+
+echo
+echo "== $PASS passed, $FAIL failed =="
+if [ "$FAIL" -gt 0 ]; then
+  echo
+  echo "Last lines of the server's output (Java errors and stack traces show up here):"
+  tail -n 25 "$TMP/server.log"
+  exit 1
+fi
