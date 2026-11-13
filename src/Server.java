@@ -169,7 +169,7 @@ public class Server {
     sendText(ex, 200, out.toString());
   }
 
-  //upload handling
+//upload handling
   static void saveIndex(Map<String, Entry> index) throws IOException {
     StringBuilder out = new StringBuilder();
     for (Map.Entry<String, Entry> item : index.entrySet()) {
@@ -257,5 +257,51 @@ public class Server {
       appendLog("put", hash, size, entry.device(), path);
     }
     sendText(ex, 200, indexLine(path, entry) + "\n");
+  }
+
+//download handling
+  static Map<String, String> parseQuery(String raw) {
+    Map<String, String> query = new HashMap<>();
+    if (raw == null) {
+      return query;
+    }
+    for (String pair : raw.split("&")) {
+      int eq = pair.indexOf('=');
+      if (eq > 0) {
+        query.put(URLDecoder.decode(pair.substring(0, eq), StandardCharsets.UTF_8), URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8));
+      }
+    }
+    return query;
+  }
+
+  static void sendFile(HttpExchange ex, String path, String wantedHash) throws IOException {
+    Entry current;
+    synchronized (LOCK) {
+      current = loadIndex().get(path);
+    }
+    if (wantedHash == null) {
+      if (current == null) {
+        sendError(ex, 400, "no file named " + path);
+        return;
+      }
+      wantedHash = current.hash();
+    }
+
+    if (!HASH.matcher(wantedHash).matches()) {
+      sendError(ex, 404, "no such version");
+      return;
+    }
+
+    long size = Files.size(obj);
+    ex.getResponseHeaders().set("Content-Type", "application/octet-stream");
+    if (current != null && current.hash().equals(wantedHash)) {
+      ex.getResponseHeaders().set("X-MTime", Long.toString(current.mtime()));
+    }
+    ex.sendResponseHeaders(200, size == 0 ? -1 : size);
+    if (size > 0) {
+      try (OutputStream out = ex.getResponseBody()) {
+        Files.copy(obj, out);
+      }
+    }
   }
 }
