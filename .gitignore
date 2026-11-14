@@ -1,0 +1,16 @@
+# Compiled Java and build output (made by javac and scripts/build.sh)
+*.class
+build/
+*.jar
+
+# Half-finished downloads from fs pull
+*.part
+
+# Files that can hold your token: never commit these
+*.env
+config.properties
+
+# Neovim swap files and editor backups
+*.swp
+*.swo
+*~
