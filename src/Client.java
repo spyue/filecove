@@ -15,6 +15,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -118,18 +119,20 @@ public class Client {
                   log [REMOTE]                          show history
                   rm REMOTE                             remove a file from the server
                   send FILE... DEVICE                   send files to DEVICE's inbox
-                  inbox [--get]                         files other devices sent you""");
-
+                  inbox [--get]                         files other devices sent you
+                  setup SERVER TOKEN [DEVICE] [--force] create this device's config file""");
   }
 
   public static void main(String[] argv) {
     List<String> args = new ArrayList<>();
     boolean get = false;
     String version = null;
+    boolean force = false;
 
     for(int i = 0; i < argv.length; i++) {
       switch (argv[i]) {
         case "--get" -> get = true;
+        case "--force" -> force = true;
         case "--version" -> {
             if (i + 1 >= argv.length) {
               die("--version needs a hash after it");
@@ -150,6 +153,11 @@ public class Client {
         System.exit(1);
     }
     String command = args.remove(0);
+    if (command.equals("setup")) {
+      cmdSetup(args, force);
+      return;
+    }
+
     loadConfig();
     //add new commands here
     switch(command) {
@@ -376,5 +384,45 @@ public class Client {
       download(e.path(), INBOX_DIR.resolve(Path.of(e.path()).getFileName()), null);
       call(newRequest("/files/" + encode(e.path())).DELETE().build());
     }
+  }
+
+//config setup handling (~/.config/filecove/config.properties)
+  static void cmdSetup(List<String> args, boolean force) {
+    need(args, 2, 3, "setup SERVER TOKEN [DEVICE] [--force]");
+    String newServer = args.get(0).replaceAll("/+$", "");
+    String newToken = args.get(1);
+    String newDevice = args.size() > 2 ? args.get(2) : hostname();
+
+    //confirm everything fits the requirements
+    if (!newServer.startsWith("http://")) {
+      die("the server address must start with http://");
+    }
+
+    if (!newDevice.matches("[A-Za-z0-9._-]{1,64}")) {
+      die("device name '" + newDevice + "' may only use numbers (1-64), letters, ._ and -");
+    }
+
+    if (Files.exists(CONFIG) && !force) {
+      die(CONFIG + " already exists; add --force to replace");
+    }
+
+    server = newServer;
+    token = newToken;
+    device = newDevice;
+    int count = lines(getText("/files/")).size();
+
+    String text = "server=" + newServer + "\n" + "token=" + newToken + "\n" + "device=" + newDevice + "\n";
+    try {
+      Files.createDirectories(CONFIG.getParent());
+      Files.writeString(CONFIG, text, StandardCharsets.UTF_8);
+
+      try {
+        Files.setPosixFilePermissions(CONFIG, PosixFilePermissions.fromString("rw-------"));
+      } catch (UnsupportedOperationException e) {}
+    } catch (IOException e) {
+        die("can't write " + CONFIG + ": " + e.getMessage());
+    }
+
+    System.out.println("saved " + CONFIG + " for device " + newDevice + "; the server answered with " + count + " files");
   }
 }
