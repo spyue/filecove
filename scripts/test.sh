@@ -71,7 +71,7 @@ for tool in java javac curl; do
   }
 done
 # Compile once into a temp folder. Errors show the file and line number.
-if javac -d "$TMP/classes" "$DIR/Server.java" "$DIR/Client.java"; then
+if javac -d "$TMP/classes" "$DIR/../src/Server.java" "$DIR/../src/Client.java"; then
   pass "both files compile"
 else
   echo "Fix the compile errors above, then run this again."
@@ -198,6 +198,31 @@ check "laptop sees it, and who sent it" "from tower" "$(laptop inbox)"
 laptop inbox --get >/dev/null
 same "inbox --get downloads to ~/Inbox" "$TMP/tower/work/gift.txt" "$TMP/laptop/Inbox/gift.txt"
 check "inbox is empty after --get" "inbox is empty" "$(laptop inbox)"
+
+#setup
+echo "== setup =="
+# A third fake device, "phone", that starts with NO config file.
+mkdir -p "$TMP/phone/work"
+phone() { (cd "$TMP/phone/work" && java -Duser.home="$TMP/phone" -cp "$TMP/classes" Client "$@" 2>&1); }
+PHONE_CONFIG="$TMP/phone/.config/filecove/config.properties"
+URL="http://127.0.0.1:$PORT"
+
+check "commands need a config first" "no config file" "$(phone ls)"
+check "setup with a wrong token fails" "401" "$(phone setup "$URL" wrong-token phone)"
+if [ -e "$PHONE_CONFIG" ]; then
+  fail "a failed setup saves nothing" "a config file was written anyway"
+else
+  pass "a failed setup saves nothing"
+fi
+check "setup refuses a bad device name" "may only use" "$(phone setup "$URL" "$TOKEN" 'my phone')"
+check "setup refuses an address without http://" "must start with http://" "$(phone setup "127.0.0.1:$PORT" "$TOKEN" phone)"
+check "setup works with the right token" "saved" "$(phone setup "$URL/" "$TOKEN" phone)"
+check "the new config works" "notes.txt" "$(phone ls)"
+check "the config is private (600)" "600" "$(stat -c %a "$PHONE_CONFIG")"
+check "the trailing / was dropped" "server=$URL" "$(head -1 "$PHONE_CONFIG")"
+check "setup won't overwrite without --force" "already exists" "$(phone setup "$URL" "$TOKEN" phone)"
+check "setup --force replaces it" "for device phone2" "$(phone setup "$URL" "$TOKEN" phone2 --force)"
+check "the new device name was saved" "device=phone2" "$(cat "$PHONE_CONFIG")"
 
 #keep bottom
 echo "== server down =="
