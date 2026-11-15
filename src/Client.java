@@ -46,7 +46,7 @@ public class Client {
 
   static void need(List<String> args, int min, int max, String usage) {
     if (args.size() < min || args.size() > max) {
-      die("usage: fs " + usage);
+      die("usage: cove " + usage);
     }
   }
 
@@ -112,7 +112,7 @@ public class Client {
 
   static void usage() {
     System.out.println("""
-                usage: fs COMMAND [ARGS]
+                usage: cove COMMAND [ARGS]
                   ls [PREFIX]                           list files on the server
                   push FILE [REMOTE]                    upload a file
                   pull REMOTE [LOCAL] [--version HASH]  download a file

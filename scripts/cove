@@ -1,0 +1,7 @@
+#!/bin/sh
+# cove - the filecove client command.
+# Runs the client inside filecove.jar, which install-client.sh puts in
+# ../share/filecove/ relative to this script, so the same script works in
+# ~/.local/bin, /usr/local/bin or Termux's $PREFIX/bin.
+here=$(dirname "$(readlink -f "$0")")
+exec java -cp "$here/../share/filecove/filecove.jar" Client "$@"

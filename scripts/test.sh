@@ -105,7 +105,7 @@ echo "== basics =="
 check "wrong token is rejected (401)" "401" "$(raw GET /files/ wrong-token)"
 check "no token is rejected (401)" "401" "$(raw GET /files/ '')"
 check "unknown endpoint gives 404" "404" "$(raw GET /nothing)"
-check "client shows help" "usage: fs" "$(tower --help)"
+check "client shows help" "usage: cove" "$(tower --help)"
 check "client rejects unknown commands" "unknown command" "$(tower frobnicate)"
 
 #ls and file search tests
@@ -223,6 +223,28 @@ check "the trailing / was dropped" "server=$URL" "$(head -1 "$PHONE_CONFIG")"
 check "setup won't overwrite without --force" "already exists" "$(phone setup "$URL" "$TOKEN" phone)"
 check "setup --force replaces it" "for device phone2" "$(phone setup "$URL" "$TOKEN" phone2 --force)"
 check "the new device name was saved" "device=phone2" "$(cat "$PHONE_CONFIG")"
+
+#install-script.sh and cove
+echo "== install =="
+# Install into a throwaway folder inside $TMP, never your real ~/.local.
+jar --create --file "$TMP/filecove.jar" -C "$TMP/classes" .
+out=$(sh "$DIR/scripts/install-client.sh" "$TMP/filecove.jar" "$TMP/prefix" 2>&1)
+check "install-client.sh reports success" "installed" "$out"
+if [ -x "$TMP/prefix/bin/cove" ]; then
+  pass "cove is installed and executable"
+else
+  fail "cove is installed and executable" "missing, or no execute permission"
+fi
+same "the jar is copied next to it" "$TMP/filecove.jar" "$TMP/prefix/share/filecove/filecove.jar"
+check "cove runs the client" "usage:" "$(PATH="$TMP/prefix/bin:$PATH" cove --help 2>&1)"
+check "cove works from another folder" "usage:" "$(cd / && PATH="$TMP/prefix/bin:$PATH" cove --help 2>&1)"
+# JAVA_TOOL_OPTIONS hands -Duser.home to the java that cove starts, so it
+# reads the fake tower's config instead of your real one.
+check "cove talks to the server" "notes.txt" \
+  "$(JAVA_TOOL_OPTIONS="-Duser.home=$TMP/tower" PATH="$TMP/prefix/bin:$PATH" cove ls 2>&1)"
+check "cove passes names with spaces intact" "pulled" \
+  "$(cd "$TMP/tower/work" && JAVA_TOOL_OPTIONS="-Duser.home=$TMP/tower" PATH="$TMP/prefix/bin:$PATH" cove pull "my notes.txt" "copy of my notes.txt" 2>&1)"
+check "install-client.sh refuses a missing jar" "no such file" "$(sh "$DIR/scripts/install-client.sh" "$TMP/nope.jar" "$TMP/prefix2" 2>&1)"
 
 #keep bottom
 echo "== server down =="
