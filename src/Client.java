@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class Client {
   static final Path HOME = Path.of(System.getProperty("user.home"));
@@ -128,11 +130,13 @@ public class Client {
     boolean get = false;
     String version = null;
     boolean force = false;
+    boolean all = false;
 
     for(int i = 0; i < argv.length; i++) {
       switch (argv[i]) {
         case "--get" -> get = true;
         case "--force" -> force = true;
+        case "--all" -> all = true;
         case "--version" -> {
             if (i + 1 >= argv.length) {
               die("--version needs a hash after it");
@@ -161,7 +165,7 @@ public class Client {
     loadConfig();
     //add new commands here
     switch(command) {
-      case "ls" -> cmdLs(args);
+      case "ls" -> cmdLs(args, all);
       case "push" -> cmdPush(args);
       case "pull" -> cmdPull(args, version);
       case "log" -> cmdLog(args);
@@ -212,7 +216,7 @@ public class Client {
     return entries;
   }
   
-  static void cmdLs(List<String> args) {
+  static void cmdLs(List<String> args, boolean all) {
     need(args, 0, 1, "ls [FOLDER] [--all]");
     String prefix = args.isEmpty() ? "" : args.get(0);
     List<Entry> entries = fileList();
@@ -238,7 +242,7 @@ public class Client {
       folder += "/";
     }
 
-    Map<String, Long[]> subfolders = new TreeMap<>();
+    Map<String, long[]> subfolders = new TreeMap<>();
     List<Entry> files = new ArrayList<>();
     for (Entry e : entries) {
       if (!e.path().startsWith(folder)) {
@@ -270,7 +274,7 @@ public class Client {
   }
 
   static void printFile(Entry e) {
-    System.out.println(System.out.printf("%8s  %s  %-14s %s%n", human(e.size()), when(e.mtime()), e.device(), e.path());)
+    System.out.println(System.out.printf("%8s  %s  %-14s %s%n", human(e.size()), when(e.mtime()), e.device(), e.path()));
   }
 
 //push handling

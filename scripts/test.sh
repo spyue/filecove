@@ -228,7 +228,7 @@ check "the new device name was saved" "device=phone2" "$(cat "$PHONE_CONFIG")"
 echo "== install =="
 # Install into a throwaway folder inside $TMP, never your real ~/.local.
 jar --create --file "$TMP/filecove.jar" -C "$TMP/classes" .
-out=$(sh "$DIR/scripts/install-client.sh" "$TMP/filecove.jar" "$TMP/prefix" 2>&1)
+out=$(sh "$DIR/install-client.sh" "$TMP/filecove.jar" "$TMP/prefix" 2>&1)
 check "install-client.sh reports success" "installed" "$out"
 if [ -x "$TMP/prefix/bin/cove" ]; then
   pass "cove is installed and executable"
@@ -244,7 +244,33 @@ check "cove talks to the server" "notes.txt" \
   "$(JAVA_TOOL_OPTIONS="-Duser.home=$TMP/tower" PATH="$TMP/prefix/bin:$PATH" cove ls 2>&1)"
 check "cove passes names with spaces intact" "pulled" \
   "$(cd "$TMP/tower/work" && JAVA_TOOL_OPTIONS="-Duser.home=$TMP/tower" PATH="$TMP/prefix/bin:$PATH" cove pull "my notes.txt" "copy of my notes.txt" 2>&1)"
-check "install-client.sh refuses a missing jar" "no such file" "$(sh "$DIR/scripts/install-client.sh" "$TMP/nope.jar" "$TMP/prefix2" 2>&1)"
+check "install-client.sh refuses a missing jar" "no such file" "$(sh "$DIR/install-client.sh" "$TMP/nope.jar" "$TMP/prefix2" 2>&1)"
+
+#folder view ls
+echo "== folders =="
+echo "a" >"$TMP/tower/work/a.txt"
+tower push a.txt docs/ >/dev/null
+tower push a.txt docs/sub/b.txt >/dev/null
+tower push a.txt docs/sub/c.txt >/dev/null
+tower push a.txt solo/only.txt >/dev/null
+
+top=$(tower ls)
+check "ls shows a folder at the top level" "docs/" "$top"
+check "ls counts the files inside a folder" "3 files" "$top"
+check "a folder with one file says 'file'" "1 file," "$top"
+check "ls still shows top-level files" "notes.txt" "$top"
+if echo "$top" | grep -q "docs/sub/b.txt"; then
+  fail "ls hides files inside folders" "docs/sub/b.txt was listed at the top level"
+else
+  pass "ls hides files inside folders"
+fi
+
+inside=$(tower ls docs)
+check "ls FOLDER works without a trailing /" "docs/a.txt" "$inside"
+check "ls FOLDER shows its subfolders" "docs/sub/" "$inside"
+check "the subfolder count is right" "2 files" "$inside"
+check "ls --all lists every file" "docs/sub/b.txt" "$(tower ls --all)"
+check "ls of an empty folder says so" "no files in nothing/" "$(tower ls nothing)"
 
 #keep bottom
 echo "== server down =="
