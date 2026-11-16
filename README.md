@@ -84,7 +84,7 @@ using:
 | FILECOVE_PORT | Port to listen on | 8800 |
 
 **Client** \
-~/.config/filecove/config.properties, written by cove setup
-server=http://YOUR-SERVER:8800
-token=YOUR-TOKEN
-device=DEVICE-NAME
+~/.config/filecove/config.properties, written by cove setup \
+server=http://YOUR-SERVER:8800 \
+token=YOUR-TOKEN \
+device=DEVICE-NAME 
