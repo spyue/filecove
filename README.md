@@ -49,18 +49,16 @@ make a token with:
 | Linux, for all users | 'sudo sh scripts/install-client.sh filecove.jar /usr/local' | '/usr/local' |
 
 ### Make sure its bin folder is in your path
-Termux, and /usr/local on Debian: already on path
-Debian, ~/.local: log out and back in once. Debian adds ~/.local/bin whenever that folder exists
-NixOS: add home.sessionPath = [ "$HOME/.local/bin" ] to your Home Manager config rebuild and relog
-anything else just add export PATH="$HOME/.local/bin:$PATH" to ~/.profile, then relog
+Termux, and /usr/local on Debian: already on path \
+Debian, ~/.local: log out and back in once. Debian adds ~/.local/bin whenever that folder exists \
+NixOS: add home.sessionPath = [ "$HOME/.local/bin" ] to your Home Manager config rebuild and relog \
+anything else just add export PATH="$HOME/.local/bin:$PATH" to ~/.profile, then relog \
 check with type cove which should return where it is installed
 
 ### Connect to the server
 using: 
 
 > cove setup http://YOUR-SERVER:8800 YOUR-TOKEN DEVICE-NAME
-
-### Try it with 'cove ls'
 
 ## Using:
 
@@ -76,3 +74,17 @@ using:
 | cove setup SERVER TOKEN [DEVICE] [--force] | create the devices config |
 
 ## Configuration
+
+**Server**
+| Variable | Meaning | Default |
+| --- | --- | --- |
+| FILECOVE_TOKEN | Shared secret clients send | none |
+| FILECOVE_DATA | Storage location for history and files | ~/filecove-data |
+| FILECOVE_HOST | Address to listen on | 0.0.0.0 |
+| FILECOVE_PORT | Port to listen on | 8800 |
+
+**Client**
+~/.config/filecove/config.properties, written by cove setup
+server=http://YOUR-SERVER:8800
+token=YOUR-TOKEN
+device=DEVICE-NAME
