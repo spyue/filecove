@@ -88,3 +88,6 @@ using:
 server=http://YOUR-SERVER:8800 \
 token=YOUR-TOKEN \
 device=DEVICE-NAME 
+
+## license
+MIT
