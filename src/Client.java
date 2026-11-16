@@ -213,20 +213,64 @@ public class Client {
   }
   
   static void cmdLs(List<String> args) {
-    need(args, 0, 1, "ls [PREFIX]");
+    need(args, 0, 1, "ls [FOLDER] [--all]");
     String prefix = args.isEmpty() ? "" : args.get(0);
-    List<Entry> rows = new ArrayList<>();
-    for (Entry e : fileList()) {
-      if (e.path().startsWith(prefix)) {
-        rows.add(e);
+    List<Entry> entries = fileList();
+
+    if (all) {
+      List<Entry> rows = new ArrayList<>();
+      for (Entry e : entries) {
+        if (e.path().startsWith(prefix)) {
+          rows.add(e);
+        }
+      }
+      if (rows.isEmpty()) {
+        System.out.println("(no files)");
+      }
+      for (Entry e : rows) {
+        printFile(e);
+      }
+      return;
+    }
+
+    String folder = prefix;
+    if (!folder.isEmpty() && !folder.endsWith("/")) {
+      folder += "/";
+    }
+
+    Map<String, Long[]> subfolders = new TreeMap<>();
+    List<Entry> files = new ArrayList<>();
+    for (Entry e : entries) {
+      if (!e.path().startsWith(folder)) {
+        continue;
+      }
+      String rest = e.path().substring(folder.length());
+      int slash = rest.indexOf('/');
+      if (slash < 0) {
+        files.add(e);
+      } else {
+          String sub = folder + rest.substring(0, slash + 1);
+          long[] totals = subfolders.computeIfAbsent(sub, k -> new long[2]);
+          totals[0]++;
+          totals[1] += e.size();
       }
     }
-    if (rows.isEmpty()) {
-      System.out.println("no files"); 
+
+    if (subfolders.isEmpty() && files.isEmpty()) {
+      System.out.println(folder.isEmpty() ? "(no files)" : "(no files in " + folder + ")");
+      return;
     }
-    for (Entry e : rows) {
-      System.out.printf("%8s %s %-14s %s%n", human(e.size()), when(e.mtime()), e.device(), e.path());
+    for (Map.Entry<String, long[]> sub : subfolders.entrySet()) {
+      long count = sub.getValue()[0];
+      System.out.printf("  %-28s %d %s, %s%n", sub.getKey(), count, count == 1 ? "file" : "files", human(sub.getValue()[1]));
     }
+    for (Entry e : files) {
+      printFile(e);
+    }
+  }
+
+  static void printFile(Entry e) {
+    System.out.println(System.out.printf("%8s  %s  %-14s %s%n", human(e.size()), when(e.mtime()), e.device(), e.path());)
   }
 
 //push handling
