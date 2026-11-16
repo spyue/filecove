@@ -83,7 +83,7 @@ using:
 | FILECOVE_HOST | Address to listen on | 0.0.0.0 |
 | FILECOVE_PORT | Port to listen on | 8800 |
 
-**Client**
+**Client** \
 ~/.config/filecove/config.properties, written by cove setup
 server=http://YOUR-SERVER:8800
 token=YOUR-TOKEN
